@@ -1,11 +1,34 @@
 package kolekcje_i_algorytmy;
-public class Student
+
+import java.io.Serializable;
+
+import javafx.beans.property.StringProperty;
+
+public class Student implements Serializable
 {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 4755707247822602467L;
 	private double mark;
 	private String firstName;
 	private String lastName;
 	private int age;
 	
+	public Student(){
+		mark=0.0;
+		firstName=null;
+		lastName=null;
+		age=0;
+	}
+	
+	public Student(String firstName, String lastName, int age, double mark) {
+		this.mark = mark;
+		this.firstName = firstName;
+		this.lastName = lastName;
+		this.age = age;
+	}
+
 	public double getMark()
 	{
 		return this.mark;
@@ -106,7 +129,7 @@ public class Student
 
 	@Override
 	public String toString() {
-		return "Student [mark=" + mark + ", firstName=" + firstName + ", lastName=" + lastName + ", age=" + age + "]";
+		return "Student: "+ firstName + " "+ lastName + ", age=" + age + ", mark="+mark;
 	}
 	
 }

@@ -1,75 +1,38 @@
 
 package kolekcje_i_algorytmy;
-
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.*;
 
-
-interface RInterface {
-    void handled (Student x);
-}
-interface NInterface {
-    void handled (Student x);
-}
-interface AInterface {
-    void handled (Student x);
-}
-interface ExtractInterface {
-	void handled(List<Student> list, OrderMode mode);
-}
-interface MarkInterface {
-    void handled(double min, double max);
-}
-interface IterInterface {
-    void handled(int iteration);
-}
-interface AgeInterface {
-    void handled(int min, int max);
-}
-
-enum ExtremumMode
-{
-    MAX,
-    MIN
-}
-
-enum OrderMode
-{
-    MARK,
-    FIRST_NAME,
-    LAST_NAME,
-    AGE
-}
-class CrawlerException extends Exception
-{
-    public CrawlerException()
-    {
-        System.err.print("Nie skonfigurowany lub błędnie skonfigurowany adres.");
-    }
-}
-public class Crawler {
+public class Crawler extends Thread {
 
 	private int iteration=0;
 	private int maxIter;
 	private String path;
-	private List<AInterface> addedList=new LinkedList();
-	private List<IterInterface> iterList=new LinkedList();
-	private List<RInterface> removedList=new LinkedList();
-	private List<NInterface> notModifiedList=new LinkedList();
-	private List<ExtractInterface> extractList=new LinkedList();
-	private List<AgeInterface> ageList=new LinkedList();
-	private List<MarkInterface> markList=new LinkedList();
-	
-	private Set<Student> studentsPrev=new HashSet();
-	private List<Student> studentsList=null;
+	private List<AddedInterface> addedList=new LinkedList<AddedInterface>();
+	private List<IterInterface> iterList=new LinkedList<IterInterface>();
+	private List<RemovedInterface> removedList=new LinkedList<RemovedInterface>();
+	private List<NotModifiedInterface> notModifiedList=new LinkedList<NotModifiedInterface>();
+	private List<ExtractInterface> extractList=new LinkedList<ExtractInterface>();
+	private List<AgeInterface> ageList=new LinkedList<AgeInterface>();
+	private List<MarkInterface> markList=new LinkedList<MarkInterface>();
 
-	public boolean add(RInterface e) {
+	private Set<Student> studentsPrev=new HashSet<Student>();
+	private List<Student> studentsList=null;
+	
+	private boolean isRunning;
+	
+	public synchronized void postCancel(){
+		isRunning=false;
+	}
+
+	public boolean add(RemovedInterface e) {
 		return removedList.add(e);
 	}
-	public boolean add(NInterface e) {return notModifiedList.add(e);}
-	public boolean add(AInterface e) {
+	public boolean add(NotModifiedInterface e) {
+		return notModifiedList.add(e);
+	}
+	public boolean add(AddedInterface e) {
 		return addedList.add(e);
 	}
 	public boolean add(IterInterface arg0) {
@@ -84,8 +47,42 @@ public class Crawler {
 	public boolean add(MarkInterface e) {
 		return markList.add(e);
 	}
-	
-	Crawler(String path,int maxIter){
+
+	public boolean remove(AddedInterface arg0) {
+		return addedList.remove(arg0);
+	}
+	public boolean remove(RemovedInterface arg0) {
+		return removedList.remove(arg0);
+	}
+	public boolean remove(NotModifiedInterface arg0) {
+		return notModifiedList.remove(arg0);
+	}
+	public boolean remove(IterInterface arg0) {
+		return iterList.remove(arg0);
+	}
+	public boolean remove(ExtractInterface arg0) {
+		return extractList.remove(arg0);
+	}
+	public boolean remove(AgeInterface arg0) {
+		return ageList.remove(arg0);
+	}
+	public boolean remove(MarkInterface arg0) {
+		return iterList.remove(arg0);
+	}
+	public int getMaxIter() {
+		return maxIter;
+	}
+	public void setMaxIter(int maxIter) {
+		this.maxIter = maxIter;
+	}
+	public String getPath() {
+		return path;
+	}
+	public void setPath(String path) {
+		this.path = path;
+	}
+
+	public Crawler(String path,int maxIter){
 		this.path=path;
 		this.maxIter=maxIter;
 	}
@@ -149,84 +146,76 @@ public class Crawler {
 	}
 
 	private void notModified(Student x){
-		for (NInterface i:notModifiedList){
+		for (NotModifiedInterface i:notModifiedList){
 			i.handled(x);
 		}
 	}
 
 	private void added(Student x){
-		for (AInterface i:addedList){
+		for (AddedInterface i:addedList){
 			i.handled(x);
 		}		
 	}
 	private void removed(Student x){
-		for (RInterface i:removedList){
+		for (RemovedInterface i:removedList){
 			i.handled(x);
 		}		
 	}
+	@Override
+	public void run() {
+		isRunning=true;
+		while (isRunning){
+			try{
+				if (path==null)
+					throw new CrawlerException("Nie zdefiniowana sciezka path");
+				try{
+					studentsList = StudentsParser.parse( new URL(path));
+				} catch (IOException e) {e.printStackTrace();}
+				for (Student x:studentsList){
+					if (studentsPrev.contains(x)){
+						notModified(x);
+					} else {
+						added(x);
+					}
+				}
+				for (Student x:studentsPrev){
+					if (!studentsList.contains(x)){
+						removed(x);
+					}
+				}
+				for (IterInterface x:iterList)
+					x.handled(iteration);
+				for (ExtractInterface x:extractList)
+					x.handled(extractStudents(OrderMode.MARK),OrderMode.MARK);
+				for (AgeInterface x:ageList)
+					x.handled(extractAge(ExtremumMode.MIN), extractAge(ExtremumMode.MAX));
+				for (MarkInterface x:markList)
+					x.handled(extractMark(ExtremumMode.MIN), extractMark(ExtremumMode.MAX));
 
-	
-	public void run() throws CrawlerException{
-	while (true){
-		if (path==null)
-			throw new CrawlerException();
-
-        if (path.contains(".txt")) {
-            try {
-                studentsList = StudentsParser.parse(new File(path));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        else if (path.contains("http://")) {
-            try {
-                studentsList = StudentsParser.parse(new URL(path));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-		for (Student x:studentsList){
-			if (studentsPrev.contains(x)){
-				notModified(x);
-			} else {
-				added(x);
+				studentsPrev=new HashSet<Student>();
+				for (Student x:studentsList)
+					studentsPrev.add(x);
+				try{
+					Thread.sleep(10000);
+				} catch (InterruptedException e){e.printStackTrace();}
+				iteration+=1;
+				if (iteration==maxIter)
+					break;
+			} catch (CrawlerException e){
+				e.printStackTrace();
+				isRunning=false;
 			}
 		}
-		for (Student x:studentsPrev){
-			if (!studentsList.contains(x)){
-				removed(x);
-			}
-		}
-		for (IterInterface x:iterList)
-			x.handled(iteration);
-		for (ExtractInterface x:extractList)
-			x.handled(extractStudents(OrderMode.MARK),OrderMode.MARK);
-		for (AgeInterface x:ageList)
-			x.handled(extractAge(ExtremumMode.MIN), extractAge(ExtremumMode.MAX));
-		for (MarkInterface x:markList)
-			x.handled(extractMark(ExtremumMode.MIN), extractMark(ExtremumMode.MAX));
-		
-		studentsPrev=new HashSet();
-		for (Student x:studentsList)
-			studentsPrev.add(x);
-		try{
-			Thread.sleep(10000);
-		} catch (InterruptedException e){e.printStackTrace();}
+	}
 
-		if (iteration==maxIter)
-			break;
-        iteration+=1;
-	}
-	}
-	
 	public static void main(String[] args){
-		
+
 		final Logger[] loggers=new Logger[]{
 				new ConsoleLogger(),
 				new MailLogger("javatestxd@gmail.com","javatestxd@gmail.com","smtp.gmail.com","ciastka8")
 		};
-		String source=new String("E:\\Java\\Projekty\\Java_GCP07_lato_2017-2018_Bart-omiej_Uchacz\\students.txt");
-		Crawler crawl=new Crawler(source, 1);
+		String tmp=new String("http://home.agh.edu.pl/~ggorecki/IS_Java/students.txt");
+		Crawler crawl=new Crawler(tmp,0);
 		AgeInterface aint=(min,max)->{System.out.println("Age: <"+min+","+max+">");};
 		crawl.add(aint);
 		MarkInterface mint=(min,max)->{System.out.println("Mark: <"+min+","+max+">");};
@@ -255,28 +244,26 @@ public class Crawler {
 		crawl.add(eint);
 		IterInterface iint=(iter)->{System.out.println("Iteracja numer: "+iter);};
 		crawl.add(iint);
-		AInterface addint=(s)->{
+		AddedInterface addint=(s)->{
 			for (Logger log:loggers){
 				log.log("ADDED",s);
 			}
 		};
 		crawl.add(addint);
-		RInterface remint=(s)->{
+		RemovedInterface remint=(s)->{
 			for (Logger log:loggers){
 				log.log("REMOVED",s);
 			}
 		};
 		crawl.add(remint);
-		NInterface nonint=(s)->{
+		NotModifiedInterface nonint=(s)->{
 			for (Logger log:loggers){
 				log.log("NOT MODIFIED",s);
 			}
 		};
 		crawl.add(nonint);
-		try{
-			crawl.run();
-		} catch (CrawlerException e){e.printStackTrace();}
+		crawl.run();
 	}
-	
-	
+
+
 }
