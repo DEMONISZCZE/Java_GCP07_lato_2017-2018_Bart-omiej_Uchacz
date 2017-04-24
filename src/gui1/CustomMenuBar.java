@@ -28,8 +28,7 @@ public class CustomMenuBar extends MenuBar {
 		info = new Alert(AlertType.INFORMATION);
 		info.setTitle("About");
 		info.setHeaderText(null);
-		info.setContentText("Java - programming excercises.\n"
-				+ "Piotr Tutak, gr. LAB07\n");
+		info.setContentText("Bartłomiej Uchacz");
 
 		menuAboutLabel=new Label("About");
 		menuAboutLabel.setOnMouseClicked((t)->{
